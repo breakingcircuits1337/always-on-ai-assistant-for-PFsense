@@ -1,26 +1,48 @@
-from openai import OpenAI
+from openai import OpenAI, AzureOpenAI
 import os
 import json
 from dotenv import load_dotenv
 from typing import List, Dict
+import google.generativeai as genai
 
 # Load environment variables
 load_dotenv()
 
-# Initialize DeepSeek client
-client = OpenAI(
-    api_key=os.getenv("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com/beta"
-)
+# Initialize OpenAI client for Deepseek, or AzureOpenAI for Azure models
+def get_openai_client():
+    if os.getenv("DEEPSEEK_API_KEY"):
+        client = OpenAI(
+            api_key=os.getenv("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com/beta"
+        )
+        return client
+    elif os.getenv("AZURE_API_KEY") and os.getenv("AZURE_ENDPOINT"):
+        client = AzureOpenAI(
+                api_key = os.getenv("AZURE_API_KEY"),
+                api_version = os.getenv("AZURE_API_VERSION"),
+                azure_endpoint = os.getenv("AZURE_ENDPOINT"),
+        )
+        return client
+    else:
+        raise Exception("No Deepseek or Azure API key found")
 
+client = get_openai_client()
+
+# initialize google gemini API
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+gemini_model = genai.GenerativeModel('gemini-pro')
+
+
+# DEEPSEEK_V3_MODEL = "deepseek-chat"
+DEFAULT_MODEL = "deepseek-chat"
 DEEPSEEK_V3_MODEL = "deepseek-chat"
 
 
-def prompt(prompt: str, model: str = DEEPSEEK_V3_MODEL) -> str:
+def get_deepseek_response(prompt: str, model: str = DEFAULT_MODEL) -> str:
     """
-    Send a prompt to DeepSeek and get detailed benchmarking response.
+    Send a prompt to a Deepseek model and get detailed benchmarking response.
     """
     response = client.chat.completions.create(
-        model=model, messages=[{"role": "user", "content": prompt}], stream=False
+        model=model, messages=[{"role": "user", "content": prompt}]
     )
     return response.choices[0].message.content
 
@@ -109,7 +131,7 @@ def prefix_then_stop_prompt(
     response = client.chat.completions.create(
         model=model, messages=messages, stop=[suffix]
     )
-    return response.choices[0].message.content
+    return prefix + response.choices[0].message.content
     # return prefix + response.choices[0].message.content
 
 
@@ -139,3 +161,35 @@ def conversational_prompt(
         return response.choices[0].message.content
     except Exception as e:
         raise Exception(f"Error in conversational prompt: {str(e)}")
+
+def get_gemini_response(prompt: str) -> str:
+    """
+    Send a prompt to Google Gemini and get response.
+    """
+    try:
+        response = gemini_model.generate_content(prompt)
+        if response.candidates:
+            return response.candidates[0].content.parts[0].text
+        else:
+            return ""
+
+    except Exception as e:
+        raise Exception(f"Error in Gemini prompt: {str(e)}")
+
+def get_mistral_response(prompt: str, model: str = "mistral-tiny") -> str:
+    """
+    Send a prompt to Mistral and get detailed benchmarking response.
+    """
+    try:
+        response = client.chat.completions.create(
+            model=model, messages=[{"role": "user", "content": prompt}]
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        raise Exception(f"Error in conversational prompt: {str(e)}")
+
+def prompt(prompt: str, model: str = DEFAULT_MODEL) -> str:
+    """
+    wrapper function to get the right response
+    """
+    return get_deepseek_response(prompt=prompt, model=model)

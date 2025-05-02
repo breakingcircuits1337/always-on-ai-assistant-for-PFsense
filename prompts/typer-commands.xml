@@ -1,3 +1,5 @@
+<model-name>gemini</model-name>
+
 <purpose>
     Given the available python typer-commands, the context-files,the scratch-pad and the natural-language-request produce the correct typer CLI command.
 </purpose>

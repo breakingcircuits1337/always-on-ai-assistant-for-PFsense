@@ -8,7 +8,7 @@ from modules.utils import (
     create_session_logger_id,
     setup_logging,
 )
-from modules.deepseek import prefix_prompt
+from modules.deepseek import prefix_prompt, get_deepseek_response, get_gemini_response, get_mistral_response
 from modules.execute_python import execute_uv_python, execute
 from elevenlabs import play
 from elevenlabs.client import ElevenLabs
@@ -119,6 +119,36 @@ class TyperAgent:
             self.logger.error(f"❌ Error building prompt: {str(e)}")
             raise
 
+    def get_response_for_typer_prompt(
+        self, prompt: str, typer_file: str, model_name:str
+    ) -> str:
+        """Get the deepseek response, and handle errors.
+        Args:
+            prompt (str): The prompt to send to deepseek
+            typer_file (str): the name of the typer_file
+        Returns:
+            str: The deepseek response
+        Raises:
+            Exception: If deepseek is not available
+        """
+        self.logger.info(f"🤖 Processing text with {model_name}...")
+
+        prefix = f"uv run python {typer_file}"
+
+        if model_name == "deepseek":
+            command = get_deepseek_response(prompt, prefix)
+        elif model_name == "gemini":
+            command = get_gemini_response(prompt, prefix)
+        elif model_name == "mistral":
+            command = get_mistral_response(prompt, prefix)
+        else:
+            raise Exception(f"Model {model_name} is not supported")
+
+        if command == prefix.strip():
+            self.logger.info(f"🤖 Command not found for '{prompt}'")
+            return "Command not found"
+        return command
+
     def process_text(
         self,
         text: str,
@@ -135,13 +165,17 @@ class TyperAgent:
             )
 
             # Generate command using DeepSeek
-            self.logger.info("🤖 Processing text with DeepSeek...")
-            prefix = f"uv run python {typer_file}"
-            command = prefix_prompt(prompt=formatted_prompt, prefix=prefix)
+            # Get model from xml file
+            with open("prompts/typer-commands.xml", "r") as f:
+                typer_prompt_file = f.read()
+            model_name = (
+                typer_prompt_file.split("<model-name>")[1].split("</model-name>")[0]
+            )
+            self.logger.info(f"Using model {model_name}")
 
-            if command == prefix.strip():
-                self.logger.info(f"🤖 Command not found for '{text}'")
-                self.speak("I couldn't find that command")
+            command = self.get_response_for_typer_prompt(formatted_prompt, typer_file, model_name)
+
+            if command == "Command not found":
                 return "Command not found"
 
             # Handle different modes with markdown formatting

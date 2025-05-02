@@ -1,7 +1,9 @@
 import typer
-from typing import Optional
+from typing import List
 
 app = typer.Typer()
+
+tasks: List[dict] = []
 
 
 @app.command()
@@ -330,7 +332,16 @@ def queue_task(
     """
     Queues a task with a specified priority and optional delay.
     """
-    pass
+    global tasks
+    task_id = len(tasks) + 1
+    new_task = {
+        "task_id": task_id,
+        "task_name": task_name,
+        "priority": priority,
+        "delay": delay,
+    }
+    tasks.append(new_task)
+    print(f"Task queued: {new_task}")
 
 
 @app.command()
@@ -341,8 +352,17 @@ def remove_task(
     """
     Removes a queued task by ID, optionally forcing removal without confirmation.
     """
-    pass
+    global tasks
+    task_id = int(task_id)
+    for index, task in enumerate(tasks):
+        if task["task_id"] == task_id:
+            removed_task = tasks.pop(index)
+            print(f"Task {task_id} removed: {removed_task}")
+            return
+    print(f"Task {task_id} does not exist.")
 
+    
+    
 
 @app.command()
 def list_tasks(
