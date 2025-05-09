@@ -114,9 +114,9 @@ class PlainAssistant:
                 try:
                     api_data = json.loads(response)
                     if not all(key in api_data for key in ['endpoint', 'method', 'headers', 'data']):
-                response = get_gemini_response([{"role":"user","content":prompt},{"role":"user","content":text}])
-                try:
-                    api_data = json.loads(response)
+                        result = "Invalid json format, missing field: endpoint, method, headers or data"
+                        self.logger.info(f"🤖 {result}")
+                        return result
                     api_response = call_api(api_data['endpoint'],api_data['method'],api_data['headers'],api_data['data'])
                     result = f"Api response: {api_response}"
                     self.logger.info(f"🤖 {result}")
@@ -125,25 +125,6 @@ class PlainAssistant:
                     result = f"Invalid json format: {response}"
                     self.logger.info(f"🤖 {result}")
                     return result
-        try:
-            if text.lower().startswith("queue task"):
-                prompt = get_queue_task_prompt()
-                response = get_gemini_response([{"role":"user","content":prompt},{"role":"user","content":text}])
-                try:
-                    task_data = json.loads(response)
-                    if not all(key in task_data for key in ['task_name', 'priority', 'delay']):
-                        result = "Invalid json format, missing field: name, priority or delay"
-                        self.logger.info(f"🤖 {result}")
-                        return result
-                    command = f"{task_data['task_name']} --priority {task_data['priority']} --delay {task_data['delay']}"
-                    result = run_terminal_command(f"python commands/template_empty.py queue-task {command}")
-                    self.logger.info(f"🤖 {result}")
-                    return result
-                except json.JSONDecodeError:
-                    result = f"Invalid json format: {response}"
-                    self.logger.info(f"🤖 {result}")
-                    return result
-
             # Check if text matches our last response
             if (
                 self.conversation_history
@@ -162,7 +143,7 @@ class PlainAssistant:
                 model_no_prefix = ":".join(self.brain.split(":")[1:])
                 response = ollama_conversational_prompt(
                     self.conversation_history, model=model_no_prefix
-                )             
+                )
             elif self.brain == "deepseek":
                  response = get_deepseek_response(self.conversation_history)
             elif self.brain == "gemini":
@@ -178,7 +159,7 @@ class PlainAssistant:
                 response = "Sorry, I don't know how to respond to that."
 
             self.conversation_history.append({"role": "assistant", "content": response})
-            
+
             # Add interaction to memory
             self.add_to_memory(text, response)
 

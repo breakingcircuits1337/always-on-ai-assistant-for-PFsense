@@ -8,7 +8,7 @@ from modules.utils import (
     create_session_logger_id,
     setup_logging,
 )
-from modules.deepseek import prefix_prompt, get_deepseek_response, get_gemini_response, get_mistral_response
+from modules.deepseek import get_deepseek_response, get_gemini_response, get_mistral_response
 from modules.execute_python import execute_uv_python, execute
 from elevenlabs import play
 from elevenlabs.client import ElevenLabs
@@ -92,7 +92,11 @@ class TyperAgent:
                 with open(file_path, "r") as f:
                     file_content = f.read()
                     file_name = os.path.basename(file_path)
-                    context_content += f'\t<context name="{file_name}">\n{file_content}\n</context>\n\n'
+                    context_content += f'	<context name="{file_name}">
+{file_content}
+</context>
+
+'
 
             # Load and format prompt template
             self.logger.info("📝 Loading prompt template...")
@@ -109,9 +113,13 @@ class TyperAgent:
 
             # Log the filled prompt template to file only (not stdout)
             with open(self.log_file, "a") as log:
-                log.write("\n📝 Filled prompt template:\n")
+                log.write("
+📝 Filled prompt template:
+")
                 log.write(formatted_prompt)
-                log.write("\n\n")
+                log.write("
+
+")
 
             return formatted_prompt
 
@@ -136,11 +144,17 @@ class TyperAgent:
         prefix = f"uv run python {typer_file}"
 
         if model_name == "deepseek":
+            # Note: Passing prefix here might be a remnant of old deepseek function.
+            # Consider if the prefix needs to be part of the prompt itself.
             command = get_deepseek_response(prompt, prefix)
         elif model_name == "gemini":
-            command = get_gemini_response(prompt, prefix)
+            # Gemini get_gemini_response expects a list of messages or a string prompt
+            # If prefix is needed, it should be part of the prompt structure.
+            command = get_gemini_response(prompt)
         elif model_name == "mistral":
-            command = get_mistral_response(prompt, prefix)
+             # Mistral get_mistral_response expects a list of messages or a string prompt
+            # If prefix is needed, it should be part of the prompt structure.
+            command = get_mistral_response(prompt)
         else:
             raise Exception(f"Model {model_name} is not supported")
 
@@ -187,9 +201,16 @@ class TyperAgent:
 
             if mode == "default":
                 result = (
-                    f"\n## {assistant_name} Generated Command ({timestamp})\n\n"
-                    f"> Request: {text}\n\n"
-                    f"```bash\n{command_with_prefix}\n```"
+                    f"
+## {assistant_name} Generated Command ({timestamp})
+
+"
+                    f"> Request: {text}
+
+"
+                    f"```bash
+{command_with_prefix}
+```"
                 )
                 with open(scratchpad, "a") as f:
                     f.write(result)
@@ -201,10 +222,23 @@ class TyperAgent:
                 output = execute(command)
 
                 result = (
-                    f"\n\n## {assistant_name} Executed Command ({timestamp})\n\n"
-                    f"> Request: {text}\n\n"
-                    f"**{assistant_name}'s Command:** \n```bash\n{command_with_prefix}\n```\n\n"
-                    f"**Output:** \n```\n{output}```"
+                    f"
+
+## {assistant_name} Executed Command ({timestamp})
+
+"
+                    f"> Request: {text}
+
+"
+                    f"**{assistant_name}'s Command:** 
+```bash
+{command_with_prefix}
+```
+
+"
+                    f"**Output:** 
+```
+{output}```"
                 )
                 with open(scratchpad, "a") as f:
                     f.write(result)
@@ -240,10 +274,11 @@ class TyperAgent:
         response_prompt = response_prompt.replace(
             "{{personal_ai_assistant_name}}", assistant_name
         )
-        prompt_prefix = f"Your Conversational Response: "
-        response = prefix_prompt(
-            prompt=response_prompt, prefix=prompt_prefix, no_prefix=True
-        )
+        
+        # Replaced prefix_prompt with get_gemini_response
+        # The prompt formatting for different models should be handled within the respective get_*_response functions
+        response = get_gemini_response(prompt=response_prompt)
+
         self.logger.info(f"🤖 Response: '{response}'")
         self.speak(response)
 
