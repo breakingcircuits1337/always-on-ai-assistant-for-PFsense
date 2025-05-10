@@ -92,11 +92,11 @@ class TyperAgent:
                 with open(file_path, "r") as f:
                     file_content = f.read()
                     file_name = os.path.basename(file_path)
-                    context_content += f'	<context name="{file_name}">
+                    context_content += f'''	<context name="{file_name}">
 {file_content}
 </context>
 
-'
+''' # Corrected multiline f-string
 
             # Load and format prompt template
             self.logger.info("📝 Loading prompt template...")
@@ -128,7 +128,10 @@ class TyperAgent:
             raise
 
     def get_response_for_typer_prompt(
-        self, prompt: str, typer_file: str, model_name:str
+        self,
+        prompt: str,
+        typer_file: str,
+        model_name:str
     ) -> str:
         """Get the deepseek response, and handle errors.
         Args:
@@ -162,6 +165,7 @@ class TyperAgent:
             self.logger.info(f"🤖 Command not found for '{prompt}'")
             return "Command not found"
         return command
+
 
     def process_text(
         self,

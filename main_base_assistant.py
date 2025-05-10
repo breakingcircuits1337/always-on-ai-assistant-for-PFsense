@@ -5,6 +5,7 @@ from modules.base_assistant import PlainAssistant
 from modules.utils import create_session_logger_id, setup_logging
 import typer
 import logging
+from modules.execute_python import execute # Corrected import
 
 app = typer.Typer()
 

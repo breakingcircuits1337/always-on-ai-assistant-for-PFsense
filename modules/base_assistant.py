@@ -14,7 +14,7 @@ from elevenlabs.client import ElevenLabs
 import pyttsx3
 from modules.prompts import get_api_json_prompt, get_queue_task_prompt
 import time
-from modules.execute_python import run_terminal_command
+from modules.execute_python import execute # Changed import
 from modules.assistant_config import get_config
 from modules.data_types import Task
 
@@ -97,80 +97,81 @@ class PlainAssistant:
 
     def process_text(self, text: str) -> str:
         """Process text input and generate response"""
+        # Removed duplicate try block and simplified task handling
         if text.lower().startswith("queue task"):
             command = text.split(" ", 1)[1]
-            result = run_terminal_command(f"python commands/template_empty.py queue-task {command}")
+            result = execute(f"python commands/template_empty.py queue-task {command}") # Changed to execute
             self.logger.info(f"🤖 {result}")
             return result
         if text.lower().startswith("remove task"):
             command = text.split(" ", 1)[1]
-            result = run_terminal_command(f"python commands/template_empty.py remove-task {command}")
+            result = execute(f"python commands/template_empty.py remove-task {command}") # Changed to execute
             self.logger.info(f"🤖 {result}")
             return result
-        try:
-            if text.lower().startswith("call api"):
+
+        if text.lower().startswith("call api"):
+            try:
                 prompt = get_api_json_prompt()
                 response = get_gemini_response([{"role":"user","content":prompt},{"role":"user","content":text}])
-                try:
-                    api_data = json.loads(response)
-                    if not all(key in api_data for key in ['endpoint', 'method', 'headers', 'data']):
-                        result = "Invalid json format, missing field: endpoint, method, headers or data"
-                        self.logger.info(f"🤖 {result}")
-                        return result
-                    api_response = call_api(api_data['endpoint'],api_data['method'],api_data['headers'],api_data['data'])
-                    result = f"Api response: {api_response}"
+                api_data = json.loads(response)
+                if not all(key in api_data for key in ['endpoint', 'method', 'headers', 'data']):
+                    result = "Invalid json format, missing field: endpoint, method, headers or data"
                     self.logger.info(f"🤖 {result}")
                     return result
-                except json.JSONDecodeError:
-                    result = f"Invalid json format: {response}"
-                    self.logger.info(f"🤖 {result}")
-                    return result
-            # Check if text matches our last response
-            if (
-                self.conversation_history
-                and text.strip().lower()
-                in self.conversation_history[-1]["content"].lower()
-            ):
-                self.logger.info("🤖 Ignoring own speech input")
-                return ""
+                api_response = call_api(api_data['endpoint'],api_data['method'],api_data['headers'],api_data['data'])
+                result = f"Api response: {api_response}"
+                self.logger.info(f"🤖 {result}")
+                return result
+            except json.JSONDecodeError:
+                result = f"Invalid json format: {response}"
+                self.logger.info(f"🤖 {result}")
+                return result
+            except Exception as e:
+                self.logger.error(f"❌ Error calling API: {str(e)}")
+                return f"An error occurred while calling the API: {str(e)}"
 
-            # Add user message to conversation history
-            self.conversation_history.append({"role": "user", "content": text})
+        # Check if text matches our last response
+        if (
+            self.conversation_history
+            and text.strip().lower()
+            in self.conversation_history[-1]["content"].lower()
+        ):
+            self.logger.info("🤖 Ignoring own speech input")
+            return ""
 
-            # Generate response using configured brain
-            self.logger.info(f"🤖 Processing text with {self.brain}...")
-            if self.brain.startswith("ollama:"):
-                model_no_prefix = ":".join(self.brain.split(":")[1:])
-                response = ollama_conversational_prompt(
-                    self.conversation_history, model=model_no_prefix
-                )
-            elif self.brain == "deepseek":
-                 response = get_deepseek_response(self.conversation_history)
-            elif self.brain == "gemini":
-                response = get_gemini_response(self.conversation_history)
-            elif self.brain == "mistral":
-                response = get_mistral_response(self.conversation_history)
-            else:
-               raise ValueError(f"Unsupported brain: {self.brain}")
+        # Add user message to conversation history
+        self.conversation_history.append({"role": "user", "content": text})
 
-            # Add assistant response to history
-            if response is None:
-                self.logger.error("❌ Got empty or None response from the model")
-                response = "Sorry, I don't know how to respond to that."
+        # Generate response using configured brain
+        self.logger.info(f"🤖 Processing text with {self.brain}...")
+        if self.brain.startswith("ollama:"):
+            model_no_prefix = ":".join(self.brain.split(":")[1:])
+            response = ollama_conversational_prompt(
+                self.conversation_history, model=model_no_prefix
+            )
+        elif self.brain == "deepseek":
+             response = get_deepseek_response(self.conversation_history)
+        elif self.brain == "gemini":
+            response = get_gemini_response(self.conversation_history)
+        elif self.brain == "mistral":
+            response = get_mistral_response(self.conversation_history)
+        else:
+           raise ValueError(f"Unsupported brain: {self.brain}")
 
-            self.conversation_history.append({"role": "assistant", "content": response})
+        # Add assistant response to history
+        if response is None:
+            self.logger.error("❌ Got empty or None response from the model")
+            response = "Sorry, I don't know how to respond to that."
 
-            # Add interaction to memory
-            self.add_to_memory(text, response)
+        self.conversation_history.append({"role": "assistant", "content": response})
 
-            # Speak the response
-            self.speak(response)
+        # Add interaction to memory
+        self.add_to_memory(text, response)
 
-            return response
+        # Speak the response
+        self.speak(response)
 
-        except Exception as e:
-            self.logger.error(f"❌ Error occurred: {str(e)}")
-            raise
+        return response
 
     def speak(self, text: str):
         """Convert text to speech using configured engine"""
