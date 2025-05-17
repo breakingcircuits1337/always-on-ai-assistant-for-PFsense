@@ -76,7 +76,8 @@ def awaken(
     )
 
     def process_text(text):
-        print(f"\n🎤 Heard: {text}")
+        print(f"
+🎤 Heard: {text}")
         try:
             assistant_name = get_config("typer_assistant.assistant_name")
             if assistant_name.lower() not in text.lower():
@@ -87,13 +88,44 @@ def awaken(
             output = assistant.process_text(
                 text, typer_file, scratchpad, context_files, mode
             )
-            print(f"🤖 Response:\n{output}")
+            print(f"🤖 Response:
+{output}")
             recorder.start()
         except Exception as e:
             print(f"❌ Error: {str(e)}")
 
     while True:
         recorder.text(process_text)
+
+# Add new commands here
+
+@app.command()
+def ask(prompt: str):
+    """Sends a prompt to the configured AI model and prints the response."""
+    print(f"Sending prompt to AI: {prompt}")
+    # TODO: Implement AI interaction logic here
+
+
+@app.command()
+def generate_code(description: str, filename: str = None):
+    """Uses an AI model to generate code based on a description."""
+    print(f"Generating code based on description: {description}")
+    if filename:
+        print(f"Will save to file: {filename}")
+        # TODO: Implement code generation and file writing logic here
+    else:
+        # TODO: Implement code generation and print to console logic here
+        pass
+
+@app.command()
+def config(key: str):
+    """Gets a configuration value by key."""
+    try:
+        value = get_config(key)
+        print(f"Config value for '{key}': {value}")
+    except KeyError:
+        print(f"Error: Configuration key '{key}' not found.")
+    # TODO: Add set functionality
 
 
 if __name__ == "__main__":
